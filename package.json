@@ -5,6 +5,7 @@
     "lambda-on-fly-image-compression": "bin/lambda-on-fly-image-compression.js"
   },
   "scripts": {
+    "dev": "tsx watch lambda/index.ts",
     "build": "tsc",
     "watch": "tsc -w",
     "test": "jest",
@@ -21,6 +22,7 @@
     "typescript": "~5.6.3"
   },
   "dependencies": {
+    "@hono/node-server": "^1.14.4",
     "aws-cdk-lib": "2.201.0",
     "constructs": "^10.0.0",
     "dotenv": "^16.5.0",
