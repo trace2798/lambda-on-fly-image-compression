@@ -4,22 +4,33 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import "dotenv/config";
 
 const app = new Hono();
-app.use(cors());
+// app.use(cors());
+
+app.use(
+  "/*",
+  cors({
+    origin: "*",
+    allowMethods: ["GET", "POST", "OPTIONS"],
+    allowHeaders: ["Content-Type", "Accept"],
+  })
+);
 
 const s3 = new S3Client({ region: process.env.AWS_BUCKET_REGION });
 const bucket = process.env.UPLOAD_BUCKET!;
 
 app
   .get("/", (c) => c.text("Hello, Upload Route!"))
-  .post("/upload", async (c) => {
+  .post("/", async (c) => {
     const contentType = c.req.header("content-type") || "";
-    if (!contentType.includes("application/pdf")) {
-      return c.json({ error: "Only Image files are allowed." }, 400);
+    if (!contentType.startsWith("image/")) {
+      return c.json({ error: "Only image files allowed." }, 400);
     }
+    console.log("contentType:", contentType);
     const arrayBuffer = await c.req.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    const key = `uploads/${Date.now()}_upload.pdf`;
+    const ext = contentType.split("/")[1];
+    const key = `original/${Date.now()}_upload.${ext}`;
 
     try {
       await s3.send(
@@ -27,7 +38,7 @@ app
           Bucket: bucket,
           Key: key,
           Body: buffer,
-          ContentType: "application/pdf",
+          ContentType: contentType,
         })
       );
       const url = `https://${bucket}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
