@@ -39,7 +39,10 @@ export class LambdaOnFlyImageCompressionStack extends cdk.Stack {
     });
     fn.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ["bedrock:InvokeModel"],
+        actions: [
+          "bedrock:InvokeModel",
+          "bedrock:InvokeModelWithResponseStream",
+        ],
         resources: [
           "arn:aws:bedrock:us-west-2:095900844101:inference-profile/us.meta.llama4-scout-17b-instruct-v1:0",
           "arn:aws:bedrock:us-east-1::foundation-model/meta.llama4-scout-17b-instruct-v1:0",
@@ -64,7 +67,14 @@ export class LambdaOnFlyImageCompressionStack extends cdk.Stack {
         ],
       })
     );
-
+    const fnUrl = fn.addFunctionUrl({
+      authType: lambda.FunctionUrlAuthType.NONE,
+      invokeMode: lambda.InvokeMode.RESPONSE_STREAM,
+    });
+    new cdk.CfnOutput(this, "FunctionUrl", {
+      value: fnUrl.url,
+      description: "Use this URL for SSE/chunked streaming",
+    });
     const api = new apigw.LambdaRestApi(this, "HonoApi", {
       handler: fn,
       proxy: true,

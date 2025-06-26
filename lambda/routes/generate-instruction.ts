@@ -29,7 +29,7 @@
 //   .post("/", async (c) => {
 //     try {
 //       console.log(" Received request, parsing body...");
-//       const { imagePublicId } = await c.req.json();
+//       const { imagePublicId, instruction } = await c.req.json();
 //       console.log("IMage Public Id:", imagePublicId);
 //       const imageInfo = await db
 //         .select()
@@ -38,11 +38,9 @@
 //         .limit(1)
 //         .get();
 //       console.log("Result", imageInfo);
-//       console.log("INSIDE GENERATE API, got image info");
 //       const publicUrl = `https://${bucket}.s3.${process.env.AWS_BUCKET_REGION}.amazonaws.com/${imageInfo?.compressImageKey}`;
 //       const res = await fetch(publicUrl);
 //       const arrayBuf = await res.arrayBuffer();
-//       console.log("INSIDE GENERATE API, Created array buff");
 //       const messages: Message[] = [
 //         {
 //           role: ConversationRole.USER,
@@ -54,12 +52,11 @@
 //               },
 //             },
 //             {
-//               text: "Generate alternate text for this image. It should be highly description and in one paragraph.",
+//               text: `Generate alternate text for this image following this user instruction:${instruction}. Current alternate text is ${image.alt}.`,
 //             },
 //           ],
 //         },
 //       ];
-//       console.log("INSIDE GENERATE API, Creating stream now");
 //       const command = new ConverseStreamCommand({
 //         modelId: modelId,
 //         messages: messages,
@@ -75,6 +72,7 @@
 //         c.req.raw.signal.addEventListener("abort", () => {
 //           console.log("Client disconnected, aborting Bedrock stream");
 //         });
+
 //         for await (const chunk of response.stream!) {
 //           const text = chunk.contentBlockDelta?.delta?.text;
 //           if (text) {
@@ -91,12 +89,12 @@
 //     }
 //   });
 
-// export { routes as generateRoute };
-//Without streaming
+// export { routes as generateInstructionRoute };
 import {
   BedrockRuntimeClient,
   ConversationRole,
   ConverseCommand,
+  ConverseStreamCommand,
   Message,
 } from "@aws-sdk/client-bedrock-runtime";
 import { eq } from "drizzle-orm";
@@ -104,6 +102,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { db } from "../../drizzle";
 import { image } from "../../drizzle/schema";
+import { streamSSE } from "hono/streaming";
 
 const app = new Hono();
 app.use(
@@ -122,7 +121,7 @@ const routes = app
   .post("/", async (c) => {
     try {
       console.log(" Received request, parsing body...");
-      const { imagePublicId } = await c.req.json();
+      const { imagePublicId, instruction } = await c.req.json();
       console.log("IMage Public Id:", imagePublicId);
       const imageInfo = await db
         .select()
@@ -131,11 +130,9 @@ const routes = app
         .limit(1)
         .get();
       console.log("Result", imageInfo);
-      console.log("INSIDE GENERATE API, got image info");
       const publicUrl = `https://${bucket}.s3.${process.env.AWS_BUCKET_REGION}.amazonaws.com/${imageInfo?.compressImageKey}`;
       const res = await fetch(publicUrl);
       const arrayBuf = await res.arrayBuffer();
-      console.log("INSIDE GENERATE API, Created array buff");
       const messages: Message[] = [
         {
           role: ConversationRole.USER,
@@ -147,12 +144,11 @@ const routes = app
               },
             },
             {
-              text: "Generate alternate text for this image. It should be highly description and in one paragraph.",
+              text: `Generate alternate text for this image following this user instruction:${instruction}. Current alternate text is ${image.alt}.`,
             },
           ],
         },
       ];
-      console.log("INSIDE GENERATE API, Creating stream now");
       const command = new ConverseCommand({
         modelId: modelId,
         messages: messages,
@@ -185,5 +181,4 @@ const routes = app
     }
   });
 
-export { routes as generateRoute };
-
+export { routes as generateInstructionRoute };

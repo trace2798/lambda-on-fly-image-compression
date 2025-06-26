@@ -7,6 +7,7 @@ import { cors } from "hono/cors";
 import { imageRoute } from "./routes/image";
 import { presignRoute } from "./routes/presign";
 import { generateRoute } from "./routes/generate";
+import { generateInstructionRoute } from "./routes/generate-instruction";
 
 const app = new Hono();
 app.use(
@@ -33,7 +34,8 @@ export const routes = app
   .route("/upload", uploadRoute)
   .route("/presign", presignRoute)
   .route("/image", imageRoute)
-  .route("/generate", generateRoute);
+  .route("/generate", generateRoute)
+  .route("/generate-instruction", generateInstructionRoute);
 
 export const handler = handle(app);
 
