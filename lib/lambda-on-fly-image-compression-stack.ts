@@ -37,8 +37,17 @@ export class LambdaOnFlyImageCompressionStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(30),
       layers: [sharpLayer],
     });
-
-    // 5. S3 permissions (unchanged)
+    fn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock:InvokeModel"],
+        resources: [
+          "arn:aws:bedrock:us-west-2:095900844101:inference-profile/us.meta.llama4-scout-17b-instruct-v1:0",
+          "arn:aws:bedrock:us-east-1::foundation-model/meta.llama4-scout-17b-instruct-v1:0",
+          "arn:aws:bedrock:us-east-2::foundation-model/meta.llama4-scout-17b-instruct-v1:0",
+          "arn:aws:bedrock:us-west-2::foundation-model/meta.llama4-scout-17b-instruct-v1:0",
+        ],
+      })
+    );
     const bucketName = envParse?.UPLOAD_BUCKET!;
     fn.addToRolePolicy(
       new iam.PolicyStatement({

@@ -35,7 +35,7 @@
 //   });
 
 // export { routes as compressRoute };
-// src/compress.ts
+
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import {
@@ -44,43 +44,60 @@ import {
   PutObjectCommand,
 } from "@aws-sdk/client-s3";
 import sharp from "sharp";
+import { db } from "../../drizzle";
+import { image } from "../../drizzle/schema";
+import { nanoid } from "nanoid";
+import { extname, dirname, join, basename } from "path";
 
 const app = new Hono();
 app.use(cors());
 
-// Configure the AWS S3 client (make sure AWS creds + region are in env)
 const s3 = new S3Client({});
 
 app
   .get("/", (c) => c.text("Hello, Compress Route!"))
   .post("/", async (c) => {
-    type Body = { key: string };
-    const { key } = (await c.req.json()) as Body;
+    type Body = { key: string; workspaceId: string };
+    const { key, workspaceId } = (await c.req.json()) as Body;
     if (!key) {
       return c.json({ error: "Missing key in request body" }, 400);
     }
 
+    const originalExt = extname(key);
+    const originalName = basename(key, originalExt);
+    const originalDir = dirname(key);
+    const compressedDir = originalDir.replace("/original", "/compressed");
+
     const bucket = process.env.UPLOAD_BUCKET!;
-    const compressedKey = `compressed/${key}`;
+    // const compressedKey = `${workspaceId}/compressed/${key}`;
+    const compressedKey = join(compressedDir, `${originalName}.webp`);
 
     try {
       console.log("fetching image:", key);
       const getCmd = new GetObjectCommand({ Bucket: bucket, Key: key });
       console.log("fetched:", getCmd);
       const getRes = await s3.send(getCmd);
-      console.log("getRes", getRes);
+      // console.log("getRes", getRes);
       if (!getRes.Body) {
         return c.json({ error: "Failed to download object" }, 500);
       }
       const inputBuffer = await getRes.Body.transformToByteArray();
-
-      // 2) Compress with Sharp
-      const outputBuffer = await sharp(Buffer.from(inputBuffer))
-        .resize({ width: 800, withoutEnlargement: true })
-        .jpeg({ quality: 80 })
-        .toBuffer();
-
-      // 3) Upload compressed back to S3
+      const origMeta = await sharp(inputBuffer).metadata();
+      console.log(
+        "Original image —",
+        `width: ${origMeta.width}px`,
+        `height: ${origMeta.height}px`,
+        `size: ${inputBuffer.byteLength} bytes`
+      );
+      const compressor = sharp(inputBuffer).webp({ quality: 80 });
+      const outputBuffer = await compressor.toBuffer();
+      const compMeta = await compressor.metadata();
+      console.log(
+        "Compressed image —",
+        `width: ${compMeta.width}px`,
+        `height: ${compMeta.height}px`,
+        `size: ${outputBuffer.byteLength} bytes`
+      );
       const putCmd = new PutObjectCommand({
         Bucket: bucket,
         Key: compressedKey,
@@ -90,11 +107,28 @@ app
       });
       await s3.send(putCmd);
 
-      // 4) Build the public URL (adjust if using a custom domain or signed URLs)
-      // const publicUrl = `https://${bucket}.s3.amazonaws.com/${compressedKey}`;
       const publicUrl = `https://${bucket}.s3.${process.env.AWS_BUCKET_REGION}.amazonaws.com/${key}`;
+      const publicId = nanoid();
+      const response = await db
+        .insert(image)
+        .values({
+          publicId: publicId,
+          workspaceId: workspaceId,
+          originalImageKey: key,
+          compressImageKey: compressedKey,
+          thumbnailImageKey: "",
+          hoverImageKey: "",
+          originalWidth: origMeta.width!,
+          originalHeight: origMeta.height!,
+          originalSize: inputBuffer.byteLength,
+          compressedSize: outputBuffer.byteLength,
+          alt: "",
+          updatedAt: new Date(),
+          createdAt: new Date(),
+        })
+        .returning({ id: image.id });
 
-      return c.json({ url: publicUrl }, 200);
+      return c.json({ message: "Done" }, 200);
     } catch (err) {
       console.error("Compress error:", err);
       return c.json({ error: "Internal Server Error" }, 500);
