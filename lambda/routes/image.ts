@@ -56,10 +56,100 @@ app
     return c.redirect(cfUrl);
   })
   .get("/:workspaceId/:imageId/:transforms", async (c) => {
-    const { workspaceId, imageId } = c.req.param();
-    const transformsRaw = c.req.param("transforms");
-    const ops = transformsRaw.split(",").filter(Boolean);
+    const { workspaceId, imageId, transforms: transformsRaw } = c.req.param();
+    const rawParts = transformsRaw
+      .split(/[,&]/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+    console.log("OPS Raw", rawParts);
+
+    const ops: string[] = [];
+    // const ops: string[] = [];
+    for (const part of rawParts) {
+      // a) bare “grayscale” turns it on
+      if (part === "grayscale") {
+        ops.push("e_grayscale");
+        continue;
+      }
+
+      if (part.includes("=")) {
+        const [key, rawValue] = part.split("=");
+        if (!rawValue) continue;
+
+        if (key === "grayscale" && rawValue === "false") {
+          continue;
+        }
+
+        switch (key) {
+          case "format":
+            if (["avif", "webp", "jpg", "jpeg", "png"].includes(rawValue)) {
+              ops.push(`format_${rawValue}`);
+            }
+            break;
+          case "width":
+          case "w": {
+            const w = parseInt(rawValue, 10);
+            if (!isNaN(w) && w > 0) ops.push(`w_${w}`);
+            break;
+          }
+          case "height":
+          case "h": {
+            const h = parseInt(rawValue, 10);
+            if (!isNaN(h) && h > 0) ops.push(`h_${h}`);
+            break;
+          }
+          case "crop":
+            if (
+              ["cover", "contain", "fill", "inside", "outside"].includes(
+                rawValue
+              )
+            ) {
+              ops.push(`c_${rawValue}`);
+            }
+            break;
+          case "gravity":
+            if (
+              [
+                "north",
+                "northeast",
+                "east",
+                "southeast",
+                "south",
+                "southwest",
+                "west",
+                "northwest",
+                "center",
+                "centre",
+              ].includes(rawValue)
+            ) {
+              ops.push(`g_${rawValue}`);
+            }
+            break;
+          case "blur": {
+            const sigma = parseFloat(rawValue);
+            if (!isNaN(sigma)) ops.push(`e_blur:${sigma}`);
+            break;
+          }
+          case "sharpen": {
+            const sigma = parseFloat(rawValue);
+            if (!isNaN(sigma)) ops.push(`e_sharpen:${sigma}`);
+            break;
+          }
+          case "grayscale":
+            if (rawValue === "true") {
+              ops.push("e_grayscale");
+            }
+            break;
+          default:
+            break;
+        }
+      } else {
+        ops.push(part);
+      }
+    }
     console.log("OPS", ops);
+    const uniqOps = Array.from(new Set(ops));
+    console.log("OPS", uniqOps);
     const result = await db
       .select()
       .from(image)
@@ -71,35 +161,44 @@ app
       .get();
     if (!result) return c.json({ error: "Image not found" }, 404);
 
-    if (ops.length === 0) {
+    if (uniqOps.length === 0) {
       return c.redirect(
         `https://d2gzjap71bv2ph.cloudfront.net/${result.image.compressImageKey}`
       );
     }
 
-    const allowedFormats = new Set(["avif", "webp", "jpg", "jpeg", "png"]);
-    const fmtToken = ops.find((op) => op.startsWith("format_"));
-    const format = fmtToken?.split("_", 2)[1]!;
-    const useFormat = allowedFormats.has(format) ? format : null;
+    const fmtToken = uniqOps.find((op) => op.startsWith("format_"));
+    const format = fmtToken?.split("_", 2)[1];
+    const allowedFmt = new Set(["avif", "webp", "jpg", "jpeg", "png"]);
+    const useFormat = allowedFmt.has(format!) ? format : "webp";
 
-    const widthToken = ops.find((op) => op.startsWith("w_"));
-    const heightToken = ops.find((op) => op.startsWith("h_"));
-    const width = widthToken ? parseInt(widthToken.split("_", 2)[1], 10) : null;
+    const widthToken = uniqOps.find((op) => op.startsWith("w_"));
+    const heightToken = uniqOps.find((op) => op.startsWith("h_"));
+    const width = widthToken
+      ? parseInt(widthToken.split("_", 2)[1], 10)
+      : undefined;
     const height = heightToken
       ? parseInt(heightToken.split("_", 2)[1], 10)
-      : null;
+      : undefined;
 
-    if (!useFormat && !width && !height) {
-      return c.redirect(
-        `https://d2gzjap71bv2ph.cloudfront.net/${result.image.compressImageKey}`
-      );
-    }
+    const cropToken = uniqOps.find((op) => op.startsWith("c_"));
+    const gravityToken = uniqOps.find((op) => op.startsWith("g_"));
+    const blurToken = uniqOps.find((op) => op.startsWith("e_blur"));
+    const sharpenToken = uniqOps.find((op) => op.startsWith("e_sharpen"));
+    const grayscale = uniqOps.includes("e_grayscale");
+
     const date = new Date().toISOString().slice(0, 10);
-    const parts = [`fly`, date, imageId];
+    const parts = ["fly", date, imageId];
     if (width) parts.push(`w${width}`);
     if (height) parts.push(`h${height}`);
-    if (useFormat) parts.push(format);
-    const key = `${workspaceId}/${parts.join("_")}.${useFormat || "webp"}`;
+    if (cropToken) parts.push(cropToken);
+    if (gravityToken) parts.push(gravityToken);
+    if (blurToken) parts.push(blurToken);
+    if (sharpenToken) parts.push(sharpenToken);
+    if (grayscale) parts.push("grayscale");
+    if (fmtToken) parts.push(useFormat as string);
+    const key = `${workspaceId}/${parts.join("_")}.${useFormat}`;
+
     let exists = true;
     try {
       await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
@@ -115,26 +214,45 @@ app
           Key: result.image.originalImageKey!,
         })
       );
-      const input = await streamToBuffer(orig.Body as Readable);
+      const buffer = await streamToBuffer(orig.Body as Readable);
 
-      let pipeline = sharp(input);
+      let pipeline = sharp(buffer);
       if (width || height) {
-        pipeline = pipeline.resize({
-          width: width ?? undefined,
-          height: height ?? undefined,
-        });
+        pipeline = pipeline.resize({ width, height });
       }
-      if (useFormat) {
-        pipeline = pipeline.toFormat(useFormat as keyof sharp.FormatEnum);
+      if (cropToken) {
+        const mode = cropToken!.slice(2) as
+          | "cover"
+          | "contain"
+          | "fill"
+          | "inside"
+          | "outside";
+        pipeline = pipeline.resize({ fit: mode });
       }
+      if (gravityToken) {
+        const pos = gravityToken!.slice(2);
+        pipeline = pipeline.resize({ position: pos as sharp.Gravity });
+      }
+      if (blurToken) {
+        const sigma = parseInt(blurToken.split(":")[1], 10);
+        pipeline = pipeline.blur(sigma);
+      }
+      if (sharpenToken) {
+        const sigma = parseInt(sharpenToken.split(":")[1], 10);
+        pipeline = pipeline.sharpen(sigma);
+      }
+      if (grayscale) {
+        pipeline = pipeline.grayscale();
+      }
+      pipeline = pipeline.toFormat(useFormat as keyof sharp.FormatEnum);
 
-      const outBuffer = await pipeline.toBuffer();
+      const outBuf = await pipeline.toBuffer();
       await s3.send(
         new PutObjectCommand({
           Bucket: bucket,
           Key: key,
-          Body: outBuffer,
-          ContentType: `image/${useFormat || "webp"}`,
+          Body: outBuf,
+          ContentType: `image/${useFormat}`,
           CacheControl: "public, max-age=31536000",
         })
       );
