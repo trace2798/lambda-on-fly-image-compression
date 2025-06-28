@@ -55,6 +55,26 @@ app
     const cfUrl = `https://d2gzjap71bv2ph.cloudfront.net/${result.image.compressImageKey}`;
     return c.redirect(cfUrl);
   })
+  .get("/:workspaceId/:imageId/og", async (c) => {
+    const { workspaceId, imageId } = c.req.param();
+    console.log("WorkspaceId:", workspaceId, "Image Id:", imageId);
+    const result = await db
+      .select()
+      .from(image)
+      .innerJoin(workspace, eq(image.workspaceId, workspace.id))
+      .where(
+        and(eq(workspace.publicId, workspaceId), eq(image.publicId, imageId))
+      )
+      .limit(1)
+      .get();
+
+    console.log("Result", result);
+    if (!result) {
+      return c.json({ error: "Image not found" }, 404);
+    }
+    const cfUrl = `https://d2gzjap71bv2ph.cloudfront.net/${result.image.originalImageKey}`;
+    return c.redirect(cfUrl);
+  })
   .get("/:workspaceId/:imageId/:transforms", async (c) => {
     const { workspaceId, imageId, transforms: transformsRaw } = c.req.param();
     const rawParts = transformsRaw

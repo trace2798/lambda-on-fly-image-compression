@@ -1,3 +1,4 @@
+
 import { Hono } from "hono";
 import { handle } from "hono/aws-lambda";
 import { serve } from "@hono/node-server";
@@ -8,6 +9,7 @@ import { imageRoute } from "./routes/image";
 import { presignRoute } from "./routes/presign";
 import { generateRoute } from "./routes/generate";
 import { generateInstructionRoute } from "./routes/generate-instruction";
+import { generateImageRoute } from "./routes/generate-image";
 
 const app = new Hono();
 app.use(
@@ -35,7 +37,8 @@ export const routes = app
   .route("/presign", presignRoute)
   .route("/image", imageRoute)
   .route("/generate", generateRoute)
-  .route("/generate-instruction", generateInstructionRoute);
+  .route("/generate-instruction", generateInstructionRoute)
+  .route("/generate-image", generateImageRoute);
 
 export const handler = handle(app);
 

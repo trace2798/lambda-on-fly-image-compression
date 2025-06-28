@@ -92,6 +92,7 @@
 //   });
 
 // export { routes as generateRoute };
+
 //Without streaming
 import {
   BedrockRuntimeClient,
