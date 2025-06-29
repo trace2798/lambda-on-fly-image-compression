@@ -8,7 +8,7 @@ export const session = sqliteTable(
     userId: text("userId")
       .notNull()
       .references(() => user.id),
-    token: text("token").notNull().unique(), // Unique session token
+    token: text("token").notNull().unique(),
     expiresAt: integer("expiresAt", { mode: "timestamp" }).notNull(),
     ipAddress: text("ipAddress"),
     userAgent: text("userAgent"),
@@ -96,9 +96,7 @@ export const image = sqliteTable(
     publicId: text("publicId").notNull().unique(),
     originalImageKey: text("originalImageKey"),
     compressImageKey: text("compressImageKey"),
-    thumbnailImageKey: text("thumbnailImageKey"),
-    hoverImageKey: text("hoverImageKey"),
-
+    imgType: text("imgType"),
     alt: text("alt"),
     originalWidth: integer("originalWidth"),
     originalHeight: integer("originalHeight"),

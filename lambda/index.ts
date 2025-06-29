@@ -1,4 +1,3 @@
-
 import { Hono } from "hono";
 import { handle } from "hono/aws-lambda";
 import { serve } from "@hono/node-server";
@@ -10,6 +9,8 @@ import { presignRoute } from "./routes/presign";
 import { generateRoute } from "./routes/generate";
 import { generateInstructionRoute } from "./routes/generate-instruction";
 import { generateImageRoute } from "./routes/generate-image";
+import { presignFreeRoute } from "./routes/presign-free";
+import { transformFreeRoute } from "./routes/transform-free";
 
 const app = new Hono();
 app.use(
@@ -35,10 +36,12 @@ export const routes = app
   .route("/compress", compressRoute)
   .route("/upload", uploadRoute)
   .route("/presign", presignRoute)
+  .route("/presign-free", presignFreeRoute)
   .route("/image", imageRoute)
   .route("/generate", generateRoute)
   .route("/generate-instruction", generateInstructionRoute)
-  .route("/generate-image", generateImageRoute);
+  .route("/generate-image", generateImageRoute)
+  .route("/transform-free", transformFreeRoute);
 
 export const handler = handle(app);
 

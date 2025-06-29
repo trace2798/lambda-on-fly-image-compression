@@ -48,6 +48,7 @@ import { db } from "../../drizzle";
 import { image } from "../../drizzle/schema";
 import { nanoid } from "nanoid";
 import { extname, dirname, join, basename } from "path";
+import { posix as pathPosix } from "path";
 
 const app = new Hono();
 app.use(cors());
@@ -57,21 +58,20 @@ const s3 = new S3Client({});
 app
   .get("/", (c) => c.text("Hello, Compress Route!"))
   .post("/", async (c) => {
-    type Body = { key: string; workspaceId: string };
-    const { key, workspaceId } = (await c.req.json()) as Body;
+    type Body = { key: string; workspaceId: string; imgType: string };
+    const { key, workspaceId, imgType } = (await c.req.json()) as Body;
     if (!key) {
       return c.json({ error: "Missing key in request body" }, 400);
     }
-
+    console.log("ORIGNIAL KEY:", key);
     const originalExt = extname(key);
+    console.log("ORIGINAL EXT", originalExt);
     const originalName = basename(key, originalExt);
     const originalDir = dirname(key);
     const compressedDir = originalDir.replace("/original", "/compressed");
-
     const bucket = process.env.UPLOAD_BUCKET!;
-    // const compressedKey = `${workspaceId}/compressed/${key}`;
-    const compressedKey = join(compressedDir, `${originalName}.webp`);
-
+    const compressedKey = pathPosix.join(compressedDir, `${originalName}.webp`);
+    console.log("ompressed Key", compressedKey);
     try {
       console.log("fetching image:", key);
       const getCmd = new GetObjectCommand({ Bucket: bucket, Key: key });
@@ -102,22 +102,21 @@ app
         Bucket: bucket,
         Key: compressedKey,
         Body: outputBuffer,
-        ContentType: "image/jpeg",
+        ContentType: "image/webp",
         CacheControl: "max-age=31536000, immutable",
       });
       await s3.send(putCmd);
 
       const publicUrl = `https://${bucket}.s3.${process.env.AWS_BUCKET_REGION}.amazonaws.com/${key}`;
       const publicId = nanoid();
-      const response = await db
+      await db
         .insert(image)
         .values({
           publicId: publicId,
           workspaceId: workspaceId,
           originalImageKey: key,
           compressImageKey: compressedKey,
-          thumbnailImageKey: "",
-          hoverImageKey: "",
+          imgType: imgType,
           originalWidth: origMeta.width!,
           originalHeight: origMeta.height!,
           originalSize: inputBuffer.byteLength,
