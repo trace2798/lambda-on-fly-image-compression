@@ -11,6 +11,7 @@ import { generateInstructionRoute } from "./routes/generate-instruction";
 import { generateImageRoute } from "./routes/generate-image";
 import { presignFreeRoute } from "./routes/presign-free";
 import { transformFreeRoute } from "./routes/transform-free";
+import { workspaceRoute } from "./routes/workspace";
 
 const app = new Hono();
 app.use(
@@ -41,7 +42,8 @@ export const routes = app
   .route("/generate", generateRoute)
   .route("/generate-instruction", generateInstructionRoute)
   .route("/generate-image", generateImageRoute)
-  .route("/transform-free", transformFreeRoute);
+  .route("/transform-free", transformFreeRoute)
+  .route("/workspace", workspaceRoute);
 
 export const handler = handle(app);
 

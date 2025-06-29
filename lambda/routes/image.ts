@@ -75,8 +75,29 @@ app
     const cfUrl = `https://d2gzjap71bv2ph.cloudfront.net/${result.image.originalImageKey}`;
     return c.redirect(cfUrl);
   })
+  .get("/:workspaceId/:imageId/", async (c) => {
+    const { workspaceId, imageId } = c.req.param();
+    console.log("WorkspaceId:", workspaceId, "Image Id:", imageId);
+    const result = await db
+      .select()
+      .from(image)
+      .innerJoin(workspace, eq(image.workspaceId, workspace.id))
+      .where(
+        and(eq(workspace.publicId, workspaceId), eq(image.publicId, imageId))
+      )
+      .limit(1)
+      .get();
+    console.log("Result", result);
+    if (!result) {
+      return c.json({ error: "Image not found" }, 404);
+    }
+    const cfUrl = `https://d2gzjap71bv2ph.cloudfront.net/${result.image.compressImageKey}`;
+    return c.redirect(cfUrl);
+  })
   .get("/:workspaceId/:imageId/:transforms", async (c) => {
     const { workspaceId, imageId, transforms: transformsRaw } = c.req.param();
+    console.log("INSIDE TRANSFORM");
+
     const rawParts = transformsRaw
       .split(/[,&]/)
       .map((p) => p.trim())
@@ -84,9 +105,7 @@ app
     console.log("OPS Raw", rawParts);
 
     const ops: string[] = [];
-    // const ops: string[] = [];
     for (const part of rawParts) {
-      // a) bare “grayscale” turns it on
       if (part === "grayscale") {
         ops.push("e_grayscale");
         continue;
