@@ -16,6 +16,8 @@ The `cdk.json` file tells the CDK Toolkit how to execute your app.
 
 # Lambda On-Fly Image Compression & AI Toolkit
 
+This repo is for the Lambda endpoints; to check the frontend go to [lambda-image](https://github.com/trace2798/lambda-image)
+
 A fully serverless, headless image-management and processing platform built on AWS Lambda and the Hono router. This project provides:
 
 - **On-the-fly image compression** (WebP at 80% quality)
