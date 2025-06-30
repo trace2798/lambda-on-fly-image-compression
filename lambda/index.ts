@@ -1,18 +1,17 @@
+import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { handle } from "hono/aws-lambda";
-import { serve } from "@hono/node-server";
-import { compressRoute } from "./routes/compress";
-import { uploadRoute } from "./routes/upload";
 import { cors } from "hono/cors";
+import { compressRoute } from "./routes/compress";
+import { generateRoute } from "./routes/generate";
+import { generateImageRoute } from "./routes/generate-image";
+import { generateInstructionRoute } from "./routes/generate-instruction";
+import { generateUrlRoute } from "./routes/generate-url";
 import { imageRoute } from "./routes/image";
 import { presignRoute } from "./routes/presign";
-import { generateRoute } from "./routes/generate";
-import { generateInstructionRoute } from "./routes/generate-instruction";
-import { generateImageRoute } from "./routes/generate-image";
 import { presignFreeRoute } from "./routes/presign-free";
 import { transformFreeRoute } from "./routes/transform-free";
 import { workspaceRoute } from "./routes/workspace";
-import { generateUrlRoute } from "./routes/generate-url";
 
 const app = new Hono();
 app.use(
@@ -27,16 +26,7 @@ app.use(
 app.options("/*", (c) => c.json(null, 200));
 
 export const routes = app
-  .get("/", async (c) => {
-    try {
-      return c.text("Hello, Hono!");
-    } catch (err) {
-      console.error(err);
-      return c.json({ error: err }, 500);
-    }
-  })
   .route("/compress", compressRoute)
-  .route("/upload", uploadRoute)
   .route("/presign", presignRoute)
   .route("/presign-free", presignFreeRoute)
   .route("/image", imageRoute)
@@ -54,4 +44,3 @@ if (require.main === module) {
   console.log(`Dev server → http://localhost:${port}`);
   serve({ fetch: app.fetch, port });
 }
-

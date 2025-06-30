@@ -94,15 +94,13 @@ import {
   BedrockRuntimeClient,
   ConversationRole,
   ConverseCommand,
-  ConverseStreamCommand,
-  Message,
+  Message
 } from "@aws-sdk/client-bedrock-runtime";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { db } from "../../drizzle";
 import { image } from "../../drizzle/schema";
-import { streamSSE } from "hono/streaming";
 
 const app = new Hono();
 app.use(
