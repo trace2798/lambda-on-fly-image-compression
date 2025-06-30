@@ -20,7 +20,7 @@ This repo is for the Lambda endpoints; to check the frontend go to [lambda-image
 
 A fully serverless, headless image-management and processing platform built on AWS Lambda and the Hono router. This project provides:
 
-- **On-the-fly image compression** (WebP at 80% quality)
+- **On-the-fly image compression**
 - **Dynamic, URL-driven transformations** (resize, crop, format conversion, blur, sharpen, grayscale)
 - **AI-powered features** via AWS Bedrock:
   - Text-to-Image (Meta Llama → Titan)
