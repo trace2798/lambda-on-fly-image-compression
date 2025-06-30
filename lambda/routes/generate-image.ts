@@ -19,11 +19,16 @@ app.use(
     allowHeaders: ["Content-Type", "Accept"],
   })
 );
+const API_KEY = process.env.APIGATEWAY_API_KEY!;
+if (!API_KEY) {
+  throw new Error("Missing APIGATEWAY_API_KEY in env");
+}
+
 const s3 = new S3Client({ region: "ap-south-1" });
 
 const client = new BedrockRuntimeClient({ region: "ap-south-1" });
-const imgClient = new BedrockRuntimeClient({ region: "us-east-1" });
 const modelId = "meta.llama3-8b-instruct-v1:0";
+const imgClient = new BedrockRuntimeClient({ region: "us-east-1" });
 const imgModelId = "amazon.titan-image-generator-v2:0";
 const bucket = process.env.UPLOAD_BUCKET!;
 const routes = app
@@ -119,11 +124,18 @@ When the user provides a scene or concept, output only the completed image promp
         CacheControl: "public, max-age=31536000, immutable",
       });
       await s3.send(putCmd);
-      const res = await fetch("http://localhost:3001/compress", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: originalKey, workspaceId, imgType: "ai" }),
-      });
+      const res = await fetch(
+        "https://y0roytbax0.execute-api.ap-south-1.amazonaws.com/dev/compress",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-api-key": API_KEY },
+          body: JSON.stringify({
+            key: originalKey,
+            workspaceId,
+            imgType: "ai",
+          }),
+        }
+      );
       if (!res.ok) {
         throw new Error(`Compress route failed: ${res.status}`);
       }

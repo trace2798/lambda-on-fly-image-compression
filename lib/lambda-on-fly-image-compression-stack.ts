@@ -1,12 +1,11 @@
 import * as cdk from "aws-cdk-lib";
-import { Construct } from "constructs";
+import * as apigw from "aws-cdk-lib/aws-apigateway";
+import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
-import * as apigw from "aws-cdk-lib/aws-apigateway";
-import * as path from "path";
+import { Construct } from "constructs";
 import dotenv from "dotenv";
-import * as iam from "aws-cdk-lib/aws-iam";
-import { CfnApplication } from "aws-cdk-lib/aws-sam";
+import * as path from "path";
 
 const envParse = dotenv.config({ path: ".env" }).parsed;
 
@@ -26,7 +25,6 @@ export class LambdaOnFlyImageCompressionStack extends cdk.Stack {
       license: "Apache-2.0",
     });
 
-    // Create your Lambda function, excluding 'sharp' from bundling
     const fn = new NodejsFunction(this, "lambda", {
       runtime: lambda.Runtime.NODEJS_22_X,
       entry: path.join(__dirname, "../lambda/index.ts"),
@@ -48,6 +46,11 @@ export class LambdaOnFlyImageCompressionStack extends cdk.Stack {
           "arn:aws:bedrock:us-east-1::foundation-model/meta.llama4-scout-17b-instruct-v1:0",
           "arn:aws:bedrock:us-east-2::foundation-model/meta.llama4-scout-17b-instruct-v1:0",
           "arn:aws:bedrock:us-west-2::foundation-model/meta.llama4-scout-17b-instruct-v1:0",
+          "arn:aws:bedrock:ap-south-1::foundation-model/meta.llama3-8b-instruct-v1:0",
+          "arn:aws:bedrock:ap-south-1::foundation-model/meta.llama3-70b-instruct-v1:0",
+          "arn:aws:bedrock:us-west-2::foundation-model/meta.llama3-3-70b-instruct-v1:0",
+          "arn:aws:bedrock:us-west-2:095900844101:inference-profile/us.meta.llama3-3-70b-instruct-v1:0",
+          "arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-image-generator-v2:0",
         ],
       })
     );
